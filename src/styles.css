@@ -62,6 +62,14 @@ html, body {
   font-family: inherit;
 }
 .search input::placeholder { color: rgba(60,60,67,0.5); }
+.datetime {
+  margin-top: 6px;
+  padding: 0 2px;
+  font-size: 11px;
+  color: rgba(60,60,67,0.5);
+  text-align: center;
+  user-select: none;
+}
 .body { flex: 1; display: flex; position: relative; overflow: hidden; }
 .stage { flex: 1; position: relative; padding: 6px 10px 16px 18px; }
 .card {
@@ -107,7 +115,10 @@ html, body {
 .field { display: flex; padding: 5px 0; font-size: 13px; }
 .field .k { width: 68px; flex-shrink: 0; color: rgba(60,60,67,0.55); text-transform: capitalize; }
 .field .v { color: #1d1d1f; word-break: break-word; }
-.field .v a { color: #007aff; text-decoration: none; }
+.field .v a { color: #007aff; text-decoration: none; cursor: pointer; }
+.field .v a:hover { text-decoration: underline; }
+.field.note { padding-top: 2px; }
+.note-text { white-space: pre-wrap; line-height: 1.4; color: rgba(60,60,67,0.85); }
 .letter-tag {
   position: absolute; top: 22px; right: 22px;
   width: 26px; height: 26px; border-radius: 50%;

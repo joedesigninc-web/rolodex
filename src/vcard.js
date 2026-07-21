@@ -9,9 +9,9 @@ export function parseVCard(raw) {
 
   for (const card of cards) {
     const lines = card.split('\n').filter(l => l.trim() && l.includes(':'));
-    const tel = [], email = [], adr = [];
+    const tel = [], email = [], adr = [], url = [];
     let fn = '', org = '', title = '', nGiven = '', nFamily = '';
-    let photo = '';
+    let photo = '', note = '';
 
     for (const line of lines) {
       if (line.startsWith('END:VCARD') || line.startsWith('VERSION') || line.startsWith('PRODID')) continue;
@@ -41,6 +41,10 @@ export function parseVCard(raw) {
         tel.push({ label, value: value.trim() });
       } else if (baseKey === 'EMAIL') {
         email.push(value.trim());
+      } else if (baseKey === 'URL') {
+        const label = keyUpper.includes('WORK') ? 'work' : (keyUpper.includes('HOME') ? 'home' : 'website');
+        const v = unescape(value).trim();
+        if (v) url.push({ label, value: v });
       } else if (baseKey === 'ADR') {
         const parts = value.split(';').map(unescape);
         while (parts.length < 7) parts.push('');
@@ -51,6 +55,8 @@ export function parseVCard(raw) {
         if (zip) line2 = (line2 + ' ' + zip).trim();
         const full = [line1, line2].filter(Boolean).join(', ');
         if (full) adr.push({ label, value: full });
+      } else if (baseKey === 'NOTE') {
+        note = value.replace(/\\n/g, '\n').replace(/\\,/g, ',').replace(/\\;/g, ';').replace(/\\\\/g, '\\').trim();
       } else if (baseKey === 'PHOTO') {
         let type = 'jpeg';
         if (keyUpper.includes('PNG')) type = 'png';
@@ -65,8 +71,9 @@ export function parseVCard(raw) {
 
     const dedupTel = [...new Map(tel.map(t => [t.value, t])).values()];
     const dedupEmail = [...new Set(email)];
+    const dedupUrl = [...new Map(url.map(u => [u.value, u])).values()];
 
-    contacts.push({ name, given: nGiven, family: nFamily, org, title, tel: dedupTel, email: dedupEmail, adr, photo });
+    contacts.push({ name, given: nGiven, family: nFamily, org, title, tel: dedupTel, email: dedupEmail, adr, url: dedupUrl, note, photo });
   }
 
   contacts.sort((a, b) => {

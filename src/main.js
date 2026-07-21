@@ -1,6 +1,7 @@
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { open } from '@tauri-apps/plugin-dialog';
 import { readTextFile, writeTextFile, exists, mkdir, BaseDirectory } from '@tauri-apps/plugin-fs';
+import { openUrl } from '@tauri-apps/plugin-opener';
 import { parseVCard } from './vcard.js';
 
 const win = getCurrentWindow();
@@ -70,29 +71,49 @@ async function importVCard() {
 document.getElementById('btnImport').addEventListener('click', importVCard);
 document.getElementById('btnImportEmpty').addEventListener('click', importVCard);
 
+function esc(s) {
+  return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+function normalizeUrl(v) {
+  return /^[a-z][a-z0-9+.-]*:\/\//i.test(v) ? v : `https://${v}`;
+}
+
+function linkField(key, display, openUrl) {
+  return `<div class="field"><span class="k">${esc(key)}</span><span class="v"><a href="${esc(openUrl)}" data-open="${esc(openUrl)}">${esc(display)}</a></span></div>`;
+}
+
 function cardHTML(c) {
   const letter = firstLetter(c);
-  const org = c.org ? `<p class="company">${c.org}</p>` : '';
-  const role = c.title ? `<p class="role">${c.title}</p>` : '';
-  const avatarInner = c.photo ? `<img src="${c.photo}" alt="">` : initials(c.name);
+  const org = c.org ? `<p class="company">${esc(c.org)}</p>` : '';
+  const role = c.title ? `<p class="role">${esc(c.title)}</p>` : '';
+  const avatarInner = c.photo ? `<img src="${c.photo}" alt="">` : esc(initials(c.name));
   let fieldsHTML = '';
   if (c.tel?.length) {
     fieldsHTML += `<div class="group-label">Phone</div>`;
-    c.tel.forEach(t => fieldsHTML += `<div class="field"><span class="k">${t.label}</span><span class="v"><a href="tel:${t.value}">${t.value}</a></span></div>`);
+    c.tel.forEach(t => fieldsHTML += linkField(t.label, t.value, `tel:${t.value.replace(/[^\d+*#,;]/g, '')}`));
   }
   if (c.email?.length) {
     fieldsHTML += `<div class="group-label">Email</div>`;
-    c.email.forEach(e => fieldsHTML += `<div class="field"><span class="k">email</span><span class="v"><a href="mailto:${e}">${e}</a></span></div>`);
+    c.email.forEach(e => fieldsHTML += linkField('email', e, `mailto:${e}`));
+  }
+  if (c.url?.length) {
+    fieldsHTML += `<div class="group-label">Website</div>`;
+    c.url.forEach(u => fieldsHTML += linkField(u.label, u.value, normalizeUrl(u.value)));
+  }
+  if (c.note) {
+    fieldsHTML += `<div class="group-label">Notes</div>`;
+    fieldsHTML += `<div class="field note"><span class="v note-text">${esc(c.note)}</span></div>`;
   }
   if (c.adr?.length) {
     fieldsHTML += `<div class="group-label">Address</div>`;
-    c.adr.forEach(a => fieldsHTML += `<div class="field"><span class="k">${a.label}</span><span class="v">${a.value}</span></div>`);
+    c.adr.forEach(a => fieldsHTML += `<div class="field"><span class="k">${esc(a.label)}</span><span class="v">${esc(a.value)}</span></div>`);
   }
   if (!fieldsHTML) fieldsHTML = `<div class="field"><span class="v" style="color:rgba(60,60,67,0.4)">No additional details</span></div>`;
   return `
     <div class="letter-tag">${letter}</div>
     <div class="avatar">${avatarInner}</div>
-    <p class="name">${c.name}</p>
+    <p class="name">${esc(c.name)}</p>
     ${org}${role}
     <div class="divider"></div>
     <div class="fields">${fieldsHTML}</div>`;
@@ -174,12 +195,28 @@ indexEl.addEventListener('pointerover', e => {
   const t = e.target.closest('.idx-letter');
   if (t && !t.classList.contains('dim')) jumpToLetter(t.dataset.l);
 });
+stage.addEventListener('click', e => {
+  const link = e.target.closest('a[data-open]');
+  if (!link) return;
+  e.preventDefault();
+  openUrl(link.dataset.open).catch(err => console.error('Failed to open', link.dataset.open, err));
+});
 stage.addEventListener('wheel', e => {
   e.preventDefault();
   if (animating || !filtered.length) return;
   if (e.deltaY > 0) goTo(Math.min(idx + 1, filtered.length - 1));
   else goTo(Math.max(idx - 1, 0));
 }, { passive: false });
+
+const datetimeEl = document.getElementById('datetime');
+function updateDateTime() {
+  const now = new Date();
+  const date = now.toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
+  const time = now.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+  datetimeEl.textContent = `${date} · ${time}`;
+}
+updateDateTime();
+setInterval(updateDateTime, 1000);
 
 (async function init() {
   const cached = await loadCache();
