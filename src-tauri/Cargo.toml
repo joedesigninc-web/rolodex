@@ -1,6 +1,6 @@
 [package]
 name = "rolodex"
-version = "0.1.0"
+version = "0.1.1"
 description = "A native Rolodex-style contacts widget"
 edition = "2021"
 
