@@ -14,7 +14,7 @@ jobs:
       matrix:
         include:
           - platform: 'macos-latest'
-            args: '--bundles dmg'
+            args: '--target universal-apple-darwin --bundles dmg'
           - platform: 'windows-latest'
             args: '--bundles nsis msi'
 
@@ -29,6 +29,10 @@ jobs:
 
       - name: install Rust
         uses: dtolnay/rust-toolchain@stable
+
+      - name: add macOS universal targets
+        if: matrix.platform == 'macos-latest'
+        run: rustup target add aarch64-apple-darwin x86_64-apple-darwin
 
       - name: install frontend dependencies
         run: npm ci
