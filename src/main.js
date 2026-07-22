@@ -3,6 +3,13 @@ import { open } from '@tauri-apps/plugin-dialog';
 import { readTextFile, writeTextFile, exists, mkdir, BaseDirectory } from '@tauri-apps/plugin-fs';
 import { openUrl } from '@tauri-apps/plugin-opener';
 import { parseVCard } from './vcard.js';
+import { parseCSV } from './csv.js';
+
+// Windows contacts are exported as CSV; macOS uses vCard.
+const isWindows = navigator.userAgent.includes('Windows');
+const importFormat = isWindows
+  ? { name: 'CSV', extension: 'csv', label: 'CSV', parse: parseCSV }
+  : { name: 'vCard', extension: 'vcf', label: 'vCard', parse: parseVCard };
 
 const win = getCurrentWindow();
 document.getElementById('btnClose').addEventListener('click', () => win.close());
@@ -23,6 +30,13 @@ const indexEl = document.getElementById('index');
 const footer = document.getElementById('footer');
 const emptyOverlay = document.getElementById('emptyOverlay');
 const searchInput = document.getElementById('search');
+
+// Label the import UI for the platform's contact format.
+document.getElementById('btnImport').title = `Import ${importFormat.label}`;
+document.getElementById('btnImportEmpty').textContent = `Import ${importFormat.label}…`;
+document.getElementById('emptyBody').textContent = isWindows
+  ? 'Import a CSV exported from Outlook, Google Contacts, or People to get started.'
+  : 'Import a vCard exported from Contacts.app to get started.';
 
 function sortKey(c) { return (c.family || c.name || '').trim().toUpperCase(); }
 function firstLetter(c) { const ch = sortKey(c).charAt(0); return /[A-Z]/.test(ch) ? ch : '#'; }
@@ -53,14 +67,14 @@ async function saveCache(data) {
   await writeTextFile(CACHE_FILE, JSON.stringify(data), { baseDir: BaseDirectory.AppData });
 }
 
-async function importVCard() {
+async function importContacts() {
   const path = await open({
     multiple: false,
-    filters: [{ name: 'vCard', extensions: ['vcf'] }]
+    filters: [{ name: importFormat.name, extensions: [importFormat.extension] }]
   });
   if (!path) return;
   const raw = await readTextFile(path);
-  const parsed = parseVCard(raw);
+  const parsed = importFormat.parse(raw);
   contacts = parsed;
   await saveCache(parsed);
   filtered = contacts.slice();
@@ -68,8 +82,8 @@ async function importVCard() {
   renderInitial();
 }
 
-document.getElementById('btnImport').addEventListener('click', importVCard);
-document.getElementById('btnImportEmpty').addEventListener('click', importVCard);
+document.getElementById('btnImport').addEventListener('click', importContacts);
+document.getElementById('btnImportEmpty').addEventListener('click', importContacts);
 
 function esc(s) {
   return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
